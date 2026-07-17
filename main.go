@@ -1,30 +1,35 @@
 package main
 
 import (
+	"database/sql"
+
 	"log"
 	"net/http"
+	"os"
 	"sync/atomic"
+
+	"github.com/faroukhamissou-dev/chirpy/internal/database"
+
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
-type apiConfig struct {
-	fileServerHits atomic.Int32
-}
-
-func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileServerHits.Add(1)
-		next.ServeHTTP(w, r)
-	})
-
-}
-
 func main() {
+	godotenv.Load()
+	db_url := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", db_url)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+	dbQueries := database.New(db)
+	platform := os.Getenv("PLATFORM")
 	const filepathRoot = "."
 	const port = "8080"
 
 	apiCfg := apiConfig{
 		fileServerHits: atomic.Int32{},
+		dbQueries:      dbQueries,
+		PLATFORM:       platform,
 	}
 
 	mux := http.NewServeMux()
@@ -33,8 +38,9 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("GET /admin/metrics", apiCfg.countHits)
 	mux.HandleFunc("POST /admin/reset", apiCfg.resetHits)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirp)
-
+	mux.HandleFunc("POST /api/chirps", apiCfg.addChirp)
+	mux.HandleFunc("POST /api/users", apiCfg.addUser)
+	mux.HandleFunc("GET /api/chirps", apiCfg.getChirps)
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
