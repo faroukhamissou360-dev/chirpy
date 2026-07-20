@@ -16,8 +16,9 @@ import (
 
 func main() {
 	godotenv.Load()
-	db_url := os.Getenv("DB_URL")
-	db, err := sql.Open("postgres", db_url)
+	dbUrl := os.Getenv("DB_URL")
+	secretKey := os.Getenv("SECRET_KEY")
+	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -30,6 +31,7 @@ func main() {
 		fileServerHits: atomic.Int32{},
 		dbQueries:      dbQueries,
 		PLATFORM:       platform,
+		SECRET_KEY: secretKey,
 	}
 
 	mux := http.NewServeMux()
@@ -41,6 +43,8 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", apiCfg.addChirp)
 	mux.HandleFunc("POST /api/users", apiCfg.addUser)
 	mux.HandleFunc("GET /api/chirps", apiCfg.getChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getChirp)
+	mux.HandleFunc("POST /api/login", apiCfg.login)
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,
