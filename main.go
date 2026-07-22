@@ -18,6 +18,7 @@ func main() {
 	godotenv.Load()
 	dbUrl := os.Getenv("DB_URL")
 	secretKey := os.Getenv("SECRET_KEY")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbUrl)
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -31,7 +32,8 @@ func main() {
 		fileServerHits: atomic.Int32{},
 		dbQueries:      dbQueries,
 		PLATFORM:       platform,
-		SECRET_KEY: secretKey,
+		SECRET_KEY:     secretKey,
+		POLKA_KEY: polkaKey,
 	}
 
 	mux := http.NewServeMux()
@@ -45,6 +47,11 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", apiCfg.getChirps)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", apiCfg.getChirp)
 	mux.HandleFunc("POST /api/login", apiCfg.login)
+	mux.HandleFunc("POST /api/refresh", apiCfg.refresh)
+	mux.HandleFunc("POST /api/revoke", apiCfg.revoke)
+	mux.HandleFunc("PUT /api/users", apiCfg.updateUser)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", apiCfg.deleteChirp)
+	mux.HandleFunc("POST /api/polka/webhooks", apiCfg.webhook)
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: mux,

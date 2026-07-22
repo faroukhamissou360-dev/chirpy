@@ -10,4 +10,5 @@ type apiConfig struct {
 	dbQueries      *database.Queries
 	PLATFORM string
 	SECRET_KEY string
+	POLKA_KEY string
 }

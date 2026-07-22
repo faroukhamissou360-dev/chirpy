@@ -1,16 +1,18 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
-func MakeJWT(userID uuid.UUID, tokenSecret string, expiresIn time.Duration) (string, error) {
+func MakeJWT(userID uuid.UUID, tokenSecret string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.RegisteredClaims{Issuer: "chirpy-access",
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiresIn)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(60 * time.Minute)),
 		Subject:   userID.String(),
 	})
 	tokenString, err := token.SignedString([]byte(tokenSecret))
@@ -40,4 +42,16 @@ func ValidateJWT(tokenString, tokenSecret string) (uuid.UUID, error) {
 	} else {
 		return uuid.Nil, err
 	}
+}
+
+func MakeRefreshToken() string {
+	key := make([]byte, 32)
+	_, err := rand.Read(key)
+	if err != nil {
+		return ""
+	}
+
+	refresh_token := hex.EncodeToString(key)
+	return refresh_token
+
 }

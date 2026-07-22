@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/faroukhamissou-dev/chirpy/internal/auth"
 	"github.com/faroukhamissou-dev/chirpy/internal/database"
 	"github.com/google/uuid"
 )
@@ -21,7 +22,6 @@ type Chirp struct {
 func (cfg *apiConfig) addChirp(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
 		Body   string    `json:"body"`
-		UserID uuid.UUID `json:"user_id"`
 	}
 	defer r.Body.Close()
 	decoder := json.NewDecoder(r.Body)
@@ -29,8 +29,26 @@ func (cfg *apiConfig) addChirp(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&params)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Something went wrong")
-	} else if len := len(params.Body); len > 140 {
+		return
+	}
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, 401, "Not Authorized")
+		return
+	}
+	tokenUuid, err := auth.ValidateJWT(token, cfg.SECRET_KEY)
+	if err != nil {
+		respondWithError(w, 401, "Not Authorized")
+		return
+	}
+	if tokenUuid == uuid.Nil {
+		respondWithError(w, 401, "Not Authorized")
+		return
+	}
+
+	if len := len(params.Body); len > 140 {
 		respondWithError(w, 400, "Chirp is too long")
+		return
 	} else {
 		words := strings.Split(params.Body, " ")
 		for i, w := range words {
@@ -47,9 +65,10 @@ func (cfg *apiConfig) addChirp(w http.ResponseWriter, r *http.Request) {
 		}
 		cleaned_body := strings.Join(words, " ")
 
-		chirp, err := cfg.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams{Body: cleaned_body, UserID: params.UserID})
+		chirp, err := cfg.dbQueries.CreateChirp(r.Context(), database.CreateChirpParams{Body: cleaned_body, UserID: tokenUuid})
 		if err != nil {
 			respondWithError(w, http.StatusInternalServerError, "Failed to create chirp")
+			return
 		}
 
 		res := Chirp{
